@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import requests
 from database import init_db, save_order
+from producer import publish_order_event
 
 import sys
 sys.path.append("../../")
