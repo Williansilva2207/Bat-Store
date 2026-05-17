@@ -21,3 +21,15 @@ def init_db():
     conecta.commit()
     conecta.close()
     print("banco de dados do pedidos ta feito")
+
+def save_order(item_id: str, quantity: int, status: str) -> int:
+    conecta = get_db_connect()
+    cursor = conecta.cursor()
+    cursor.execute(
+        "INSERT INTO orders (item_id, quantity, status) VALUES (?, ?, ?)",
+        (item_id, quantity, status)
+    )
+    conecta.commit()
+    order_id = cursor.lastrowid
+    conecta.close()
+    return order_id
