@@ -31,5 +31,4 @@ def init_db():
         cursor.executemany("INSERT INTO items VALUES (?, ?, ?, ?, ?)", initial_items)
         conecta.commit()
         print("banco de dados do catalogo ta feito")
-    
     conecta.close()

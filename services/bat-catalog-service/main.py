@@ -1,11 +1,13 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from database import init_db, get_db_connect
 
-app = FastAPI(title="Bat-Catalog-Service", version="1.0.0")
-
-@app.on_event("startup")
-def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     init_db()
+    yield
+
+app = FastAPI(title="Bat-Catalog-Service", version="1.0.0", lifespan=lifespan)
 
 @app.get("/")
 def home():
