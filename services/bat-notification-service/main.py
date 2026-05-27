@@ -1,6 +1,7 @@
 import json
 import os
 import threading
+import traceback
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -18,16 +19,30 @@ REDIS_BLOCK_TIMEOUT = int(os.environ["REDIS_BLOCK_TIMEOUT"])
 REDIS_RECONNECT_INTERVAL = int(os.environ.get("REDIS_RECONNECT_INTERVAL", "5"))
 
 
+def log_json(level: str, correlation_id: str, message: str, **extra):
+    print(json.dumps({
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "level": level,
+        "service": "bat-notification-service",
+        "correlation_id": correlation_id,
+        "message": message,
+        **extra
+    }, ensure_ascii=False))
+
 def processar_mensagem(mensagem: dict):
     order_id = mensagem.get("order_id")
     item_id = mensagem.get("item_id")
     quantity = mensagem.get("quantity")
     status = mensagem.get("status")
+    correlation_id = mensagem.get("correlation_id", "sem-correlation-id")
     sent_at = datetime.utcnow().isoformat()
 
     notification_id = save_notification(order_id, item_id, quantity, status, sent_at)
 
     log_json(
+        "INFO",
+        correlation_id,
+        "Mensagem consumida da fila e notificacao salva",
         "info",
         "bat-notification-service",
         "notification_processed",
@@ -36,6 +51,8 @@ def processar_mensagem(mensagem: dict):
         item_id=item_id,
         quantity=quantity,
         status=status,
+        notification_id=notification_id
+    )
         notification_id=notification_id,
     )
 
@@ -68,6 +85,14 @@ def consumir_fila():
                 _, mensagem_json = mensagem_raw
                 mensagem = json.loads(mensagem_json)
                 processar_mensagem(mensagem)
+        except Exception as e:
+            log_json(
+                "ERROR",
+                "sem-correlation-id",
+                "Erro ao consumir fila",
+                error=str(e),
+                stack_trace=traceback.format_exc()
+            )
         except redis.RedisError as error:
             log_json("error", "bat-notification-service", "redis_connection_failed", error)
             cliente_redis = conectar_redis()
