@@ -1,0 +1,40 @@
+services:
+  catalog:
+    build: 
+      context: .
+      dockerfile: services/bat-catalog-service/dockerfile
+    container_name: catalog
+    ports:
+      - "8000:8000"
+    
+  order:
+    build: 
+      context: .
+      dockerfile: services/bat-order-service/dockerfile
+    container_name: order
+    ports:
+      - "8001:8000"
+  
+  payment:
+    build: 
+      context: .
+      dockerfile: services/bat-payment-service/dockerfile
+    container_name: payment
+    ports:
+      - "8002:8000"
+    
+  notification:
+    build: 
+      context: .
+      dockerfile: services/bat-notification-service/dockerfile
+    container_name: notification
+    ports:
+      - "8003:8000"
+    
+  auth:
+    build: 
+      context: .
+      dockerfile: services/bat-auth-service/dockerfile
+    container_name: auth
+    ports:
+      - "8004:8000"
