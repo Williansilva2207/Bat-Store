@@ -22,12 +22,12 @@ class BatBrokerMiddleware:
         try:
             self.client = redis.Redis(host=self.host, port=self.port, decode_responses=True, socket_timeout=3)
             self.client.ping()
-            log_json("info", self.service_name, "redis_connection_restored", None)
+            log_json("INFO", self.service_name, "Conexão com Redis estabelecida")
             self._reconnect_thread = None
             return True
         except redis.RedisError as error:
             self.client = None
-            log_json("error", self.service_name, "redis_connection_failed", error)
+            log_json("ERROR", self.service_name, "Falha na conexão com Redis", error=str(error))
             self._schedule_reconnect()
             return False
 
@@ -43,10 +43,10 @@ class BatBrokerMiddleware:
             try:
                 self.client = redis.Redis(host=self.host, port=self.port, decode_responses=True, socket_timeout=3)
                 self.client.ping()
-                log_json("info", self.service_name, "redis_connection_restored", None)
+                log_json("INFO", self.service_name, "Reconexão com Redis bem-sucedida")
                 return
             except redis.RedisError as error:
-                log_json("error", self.service_name, "redis_connection_failed", error)
+                log_json("ERROR", self.service_name, "Tentativa de reconexão com Redis falhou", error=str(error))
                 time.sleep(self.reconnect_interval)
 
     def publish_event(self, queue_name: str, payload: dict):
@@ -54,10 +54,9 @@ class BatBrokerMiddleware:
             connected = self._connect()
             if not connected:
                 log_json(
-                    "warning",
+                    "WARNING",
                     self.service_name,
-                    "publish_event_deferred",
-                    "Redis indisponível, evento mantido para reconexão",
+                    "Evento adiado - Redis indisponível",
                     queue_name=queue_name,
                 )
                 self._schedule_reconnect()
@@ -66,22 +65,14 @@ class BatBrokerMiddleware:
         try:
             self.client.lpush(queue_name, json.dumps(payload))
             log_json(
-                "info",
+                "INFO",
                 self.service_name,
-                "event_published",
-                None,
+                "Evento publicado na fila",
                 queue_name=queue_name,
             )
             return True
         except redis.RedisError as error:
             self.client = None
-            log_json("error", self.service_name, "redis_connection_failed", error)
+            log_json("ERROR", self.service_name, "Falha ao publicar evento", error=str(error))
             self._schedule_reconnect()
-            log_json(
-                "warning",
-                self.service_name,
-                "publish_event_deferred",
-                error,
-                queue_name=queue_name,
-            )
             return False

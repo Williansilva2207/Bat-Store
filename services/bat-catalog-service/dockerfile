@@ -3,5 +3,4 @@ WORKDIR /app
 COPY services/bat-catalog-service/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY services/bat-catalog-service/ .
-COPY middleware ./middleware
-CMD uvicorn main:app --host $APP_HOST --port $APP_PORT
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

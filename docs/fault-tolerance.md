@@ -30,7 +30,7 @@ O Bat-Store adota **Eventual Consistency** (Consistência Eventual) como estrat�
 
 **Como o middleware lida:**
 - ResilientHttpClient mantém circuit breaker para chamadas falhadas
-- Após 5 falhas consecutivas, para de tentar por 30 segundos
+- Após 3 falhas consecutivas, para de tentar por 30 segundos
 - Retorna HTTP 503 com mensagem clara
 
 **Recuperação:**
@@ -192,7 +192,7 @@ def publish_event(self, queue_name, payload):
    - Tentativa 1: FALHA → sleep 0.5s
    - Tentativa 2: FALHA → sleep 1s
    - Tentativa 3: FALHA → sleep 2s
-5. Circuit Breaker se abre (5 falhas acumuladas)
+5. Circuit Breaker se abre (3 falhas acumuladas)
 6. Fallback para cache:
    - Se cache existe: retorna dados em cache, status PROCESSANDO_DEGRADADO
    - Se não: HTTPException 503

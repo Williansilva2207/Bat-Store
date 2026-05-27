@@ -1,51 +1,79 @@
 import os
 import json
 import time
-import traceback
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
+
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import httpx
 import jwt
 from pydantic import BaseModel
+from prometheus_fastapi_instrumentator import Instrumentator
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk.resources import Resource
 
 from database import init_db, save_payment, get_payment_by_order
 from middleware.resilient_http import ResilientFallback, ResilientHttpClient
-from prometheus_fastapi_instrumentator import Instrumentator
 
-CATALOG_SERVICE_URL = os.environ["CATALOG_SERVICE_URL"]
-CATALOG_REQUEST_TIMEOUT = float(os.environ["CATALOG_REQUEST_TIMEOUT"])
+
+CATALOG_SERVICE_URL = os.getenv("CATALOG_SERVICE_URL", "http://bat-catalog-service:8000")
+CATALOG_REQUEST_TIMEOUT = float(os.getenv("CATALOG_REQUEST_TIMEOUT", "3.0"))
 CORRELATION_ID_HEADER = "X-Correlation-ID"
-JWT_SECRET = os.environ.get("JWT_SECRET", "change-me")
-JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
+JWT_SECRET = os.getenv("JWT_SECRET", "change-me")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+SERVICE_NAME = "bat-payment-service"
 
 security = HTTPBearer()
 
 catalog_client = ResilientHttpClient(
-    service_name="bat-payment-service",
+    service_name=SERVICE_NAME,
     timeout_seconds=CATALOG_REQUEST_TIMEOUT,
 )
 
 METODOS_ACEITOS = ["credit_card", "debit_card", "bat_coins"]
 
-def log_json(level: str, correlation_id: str, message: str, **extra):
-    print(json.dumps({
-        "timestamp": datetime.utcnow().isoformat() + "Z",
-        "level": level,
-        "service": "bat-payment-service",
-        "correlation_id": correlation_id,
+
+def log_json(level: str, message: str, correlation_id=None, **extra):
+    payload = {
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "level": level.upper(),
+        "service": SERVICE_NAME,
+        "correlation_id": correlation_id or "sem-correlation-id",
         "message": message,
-        **extra
-    }, ensure_ascii=False))
+    }
+    if extra:
+        payload.update(extra)
+    print(json.dumps(payload, ensure_ascii=False), flush=True)
+
+
+def setup_tracing(app: FastAPI):
+    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+    if otlp_endpoint:
+        resource = Resource.create({"service.name": SERVICE_NAME})
+        provider = TracerProvider(resource=resource)
+        exporter = OTLPSpanExporter(endpoint=otlp_endpoint, insecure=True)
+        provider.add_span_processor(BatchSpanProcessor(exporter))
+        trace.set_tracer_provider(provider)
+        FastAPIInstrumentor.instrument_app(app)
+        log_json("INFO", "OpenTelemetry tracing configurado", endpoint=otlp_endpoint)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    log_json("INFO", "Serviço iniciado")
     yield
+    log_json("INFO", "Serviço encerrado")
 
 app = FastAPI(title="Bat-Payment-Service", version="1.0.0", lifespan=lifespan)
 Instrumentator().instrument(app).expose(app)
+setup_tracing(app)
+
 
 class PaymentRequest(BaseModel):
     order_id: int
@@ -53,9 +81,11 @@ class PaymentRequest(BaseModel):
     quantity: int
     method: str
 
+
 @app.get("/")
 def home():
     return {"service": "Bat-Payment-Service", "status": "Online"}
+
 
 @app.post("/payments")
 def process_payment(payment: PaymentRequest, request: Request):
@@ -64,8 +94,8 @@ def process_payment(payment: PaymentRequest, request: Request):
 
     log_json(
         "INFO",
-        correlation_id,
         "Inicio do processamento de pagamento",
+        correlation_id=correlation_id,
         order_id=payment.order_id,
         item_id=payment.item_id,
         quantity=payment.quantity,
@@ -74,9 +104,9 @@ def process_payment(payment: PaymentRequest, request: Request):
 
     if payment.method not in METODOS_ACEITOS:
         log_json(
-            "INFO",
-            correlation_id,
+            "WARNING",
             "Metodo de pagamento invalido",
+            correlation_id=correlation_id,
             method=payment.method,
             status_code=400,
             latency_ms=round((time.perf_counter() - inicio) * 1000, 2)
@@ -89,9 +119,9 @@ def process_payment(payment: PaymentRequest, request: Request):
     existing = get_payment_by_order(payment.order_id)
     if existing:
         log_json(
-            "INFO",
-            correlation_id,
+            "WARNING",
             "Pagamento duplicado detectado",
+            correlation_id=correlation_id,
             order_id=payment.order_id,
             status_code=409,
             latency_ms=round((time.perf_counter() - inicio) * 1000, 2)
@@ -100,7 +130,7 @@ def process_payment(payment: PaymentRequest, request: Request):
 
     try:
         catalog_result = catalog_client.get_json(
-            f"{CATALOG_SERVICE_URL}/{payment.item_id}",
+            f"{CATALOG_SERVICE_URL}/items/{payment.item_id}",
             cache_key=payment.item_id,
             headers={CORRELATION_ID_HEADER: correlation_id}
         )
@@ -136,8 +166,8 @@ def process_payment(payment: PaymentRequest, request: Request):
 
     log_json(
         "INFO",
-        correlation_id,
         "Pagamento processado com sucesso",
+        correlation_id=correlation_id,
         payment_id=payment_id,
         order_id=payment.order_id,
         total=total,
@@ -164,12 +194,14 @@ def process_payment(payment: PaymentRequest, request: Request):
         "degraded": degraded_mode,
     }
 
+
 @app.get("/payments/{order_id}")
 def get_payment(order_id: int, request: Request, credentials: HTTPAuthorizationCredentials = Depends(security)):
-    # Verificar se é admin
+    correlation_id = request.headers.get(CORRELATION_ID_HEADER, "sem-correlation-id")
     try:
         payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         if payload.get("role") != "admin":
+            log_json("WARNING", "Acesso não autorizado aos pagamentos", correlation_id=correlation_id)
             raise HTTPException(status_code=403, detail="Apenas administradores podem consultar pagamentos.")
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expirado.")

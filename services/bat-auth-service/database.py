@@ -1,12 +1,15 @@
 import os
 import sqlite3
 
-DB_FILE = os.environ["AUTH_DB_FILE"]
+
+DB_FILE = os.getenv("AUTH_DB_FILE", "auth.db")
+
 
 def get_db_connect():
     conecta = sqlite3.connect(DB_FILE)
     conecta.row_factory = sqlite3.Row
     return conecta
+
 
 def init_db():
     conecta = get_db_connect()
@@ -24,25 +27,26 @@ def init_db():
         import bcrypt
         initial_users = [
             (
-                os.environ["INITIAL_ADMIN_USERNAME"],
-                bcrypt.hashpw(os.environ["INITIAL_ADMIN_PASSWORD"].encode(), bcrypt.gensalt()).decode(),
+                os.getenv("INITIAL_ADMIN_USERNAME", "batman"),
+                bcrypt.hashpw(os.getenv("INITIAL_ADMIN_PASSWORD", "batman123").encode(), bcrypt.gensalt()).decode(),
                 "admin"
             ),
             (
-                os.environ["INITIAL_USER_USERNAME"],
-                bcrypt.hashpw(os.environ["INITIAL_USER_PASSWORD"].encode(), bcrypt.gensalt()).decode(),
+                os.getenv("INITIAL_USER_USERNAME", "robin"),
+                bcrypt.hashpw(os.getenv("INITIAL_USER_PASSWORD", "robin123").encode(), bcrypt.gensalt()).decode(),
                 "user"
             ),
             (
-                os.environ["INITIAL_SUPPORT_USERNAME"],
-                bcrypt.hashpw(os.environ["INITIAL_SUPPORT_PASSWORD"].encode(), bcrypt.gensalt()).decode(),
+                os.getenv("INITIAL_SUPPORT_USERNAME", "alfred"),
+                bcrypt.hashpw(os.getenv("INITIAL_SUPPORT_PASSWORD", "alfred123").encode(), bcrypt.gensalt()).decode(),
                 "user"
             ),
         ]
         cursor.executemany("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", initial_users)
         conecta.commit()
-        print("banco de dados de auth ta feito")
+        print("Banco de dados de auth inicializado", flush=True)
     conecta.close()
+
 
 def get_user(username: str):
     conecta = get_db_connect()

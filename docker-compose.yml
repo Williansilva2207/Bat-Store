@@ -1,80 +1,69 @@
 services:
-  catalog:
+  bat-catalog-service:
+    container_name: bat-catalog-service
     env_file:
       - .env
     build:
       context: .
       dockerfile: services/bat-catalog-service/dockerfile
-    # container_name removido para permitir replicação
-    # ports expostos removidos para evitar conflito na máquina física. O Docker balanceia internamente.
-    deploy:
-      replicas: 2
+    ports:
+      - "${CATALOG_HOST_PORT}:8000"
 
-  order:
+  bat-order-service:
+    container_name: bat-order-service
     env_file:
       - .env
     build:
       context: .
       dockerfile: services/bat-order-service/dockerfile
+    ports:
+      - "${ORDER_HOST_PORT}:8000"
     depends_on:
-      - catalog
+      - bat-catalog-service
       - redis
-      - auth
-      - payment
-    deploy:
-      replicas: 2
+      - bat-auth-service
+      - bat-payment-service
 
-  payment:
+  bat-payment-service:
+    container_name: bat-payment-service
     env_file:
       - .env
     build:
       context: .
       dockerfile: services/bat-payment-service/dockerfile
+    ports:
+      - "${PAYMENT_HOST_PORT}:8000"
     depends_on:
-      - catalog
-    deploy:
-      replicas: 2
+      - bat-catalog-service
 
-  notification:
+  bat-notification-service:
+    container_name: bat-notification-service
     env_file:
       - .env
     build:
       context: .
       dockerfile: services/bat-notification-service/dockerfile
+    ports:
+      - "${NOTIFICATION_HOST_PORT}:8000"
     depends_on:
       - redis
-    deploy:
-      replicas: 2
 
-  auth:
+  bat-auth-service:
+    container_name: bat-auth-service
     env_file:
       - .env
     build:
       context: .
       dockerfile: services/bat-auth-service/dockerfile
-    deploy:
-      replicas: 2
+    ports:
+      - "${AUTH_HOST_PORT}:8000"
 
   redis:
     image: redis:7-alpine
     container_name: redis
     command: redis-server --save 60 1 --loglevel warning --appendonly yes
     ports:
-      - "${REDIS_HOST_PORT}:${REDIS_PORT}"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  redis-replica:
-    image: redis:7-alpine
-    container_name: redis-replica
-    depends_on:
-      - redis
-    command: redis-server --replicaof redis ${REDIS_PORT} --save 60 1 --loglevel warning
-    ports:
-      - "6380:${REDIS_PORT}"
+      - "${REDIS_HOST_PORT}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -93,11 +82,11 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
     depends_on:
-      - auth
-      - catalog
-      - order
-      - payment
-      - notification
+      - bat-auth-service
+      - bat-catalog-service
+      - bat-order-service
+      - bat-payment-service
+      - bat-notification-service
 
   grafana:
     image: grafana/grafana:latest
@@ -109,6 +98,8 @@ services:
       GF_SECURITY_ADMIN_USER: admin
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./docs/grafana-dashboard.json:/var/lib/grafana/dashboards/bat-store.json
     depends_on:
       - prometheus
 
@@ -122,26 +113,26 @@ services:
       COLLECTOR_OTLP_ENABLED: "true"
 
   interface:
+    container_name: interface
     env_file:
       - .env
     build:
-      context: .
-      dockerfile: interface/Dockerfile
-    container_name: interface
+      context: ./interface
+      dockerfile: Dockerfile
     ports:
       - "5000:5000"
     depends_on:
-      - auth
-      - catalog
-      - order
-      - payment
-      - notification
+      - bat-auth-service
+      - bat-catalog-service
+      - bat-order-service
+      - bat-payment-service
+      - bat-notification-service
     environment:
-      AUTH_SERVICE_URL: http://auth:8000
-      CATALOG_SERVICE_URL: http://catalog:8000
-      ORDER_SERVICE_URL: http://order:8000
-      PAYMENT_SERVICE_URL: http://payment:8000
-      NOTIFICATION_SERVICE_URL: http://notification:8000
+      AUTH_SERVICE_URL: http://bat-auth-service:8000
+      CATALOG_SERVICE_URL: http://bat-catalog-service:8000
+      ORDER_SERVICE_URL: http://bat-order-service:8000
+      PAYMENT_SERVICE_URL: http://bat-payment-service:8000
+      NOTIFICATION_SERVICE_URL: http://bat-notification-service:8000
       FLASK_SECRET_KEY: change-me-in-production
 
 volumes:

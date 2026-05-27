@@ -1,171 +1,98 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bat-Store - Página Inicial</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #fff;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        nav {
-            background: #0f3460;
-            padding: 20px 0;
-            margin-bottom: 40px;
-            border-bottom: 3px solid #e94560;
-        }
-        
-        nav ul {
-            list-style: none;
-            display: flex;
-            gap: 30px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        
-        nav a {
-            color: #fff;
-            text-decoration: none;
-            font-weight: bold;
-            transition: color 0.3s;
-        }
-        
-        nav a:hover {
-            color: #e94560;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        
-        h1 {
-            text-align: center;
-            margin-bottom: 30px;
-            color: #e94560;
-        }
-        
-        .status-section {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 30px;
-            border-radius: 10px;
-            margin-bottom: 30px;
-        }
-        
-        .service-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-        }
-        
-        .service-card {
-            background: #0f3460;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 4px solid #e94560;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .service-card .status {
-            font-weight: bold;
-            padding: 5px 10px;
-            border-radius: 4px;
-        }
-        
-        .status-online {
-            background: #28a745;
-            color: white;
-        }
-        
-        .status-offline {
-            background: #dc3545;
-            color: white;
-        }
-        
-        .user-info {
-            text-align: right;
-            margin-bottom: 20px;
-        }
-        
-        .user-info p {
-            margin: 5px 0;
-        }
-        
-        .logout-btn {
-            background: #e94560;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        
-        .logout-btn:hover {
-            background: #d63749;
-        }
-    </style>
+    <title>Bat-Store Interface</title>
 </head>
 <body>
-    <nav>
+    <h1>Bat-Store Middleware Distribuído</h1>
+
+    <fieldset>
+        <legend>Seção 1 - Status dos Serviços</legend>
         <ul>
-            <li><a href="/">Início</a></li>
-            <li><a href="/catalog">Catálogo</a></li>
-            <li><a href="/orders">Pedidos</a></li>
-            <li><a href="/observability">Observabilidade</a></li>
-            {% if token %}
-                <li><a href="/auth">Sair</a></li>
-            {% else %}
-                <li><a href="/auth">Login</a></li>
-            {% endif %}
+            {% for service, status in services.items() %}
+            <li>{{ service }}: {{ status }}</li>
+            {% endfor %}
         </ul>
-    </nav>
-    
-    <div class="container">
-        {% if token %}
-            <div class="user-info">
-                <p>Bem-vindo, <strong>{{ username }}</strong>!</p>
-                <button class="logout-btn" onclick="logout()">Sair</button>
-            </div>
+        <button onclick="window.location.reload();">Recarregar</button>
+    </fieldset>
+
+    <fieldset>
+        <legend>Seção 2 - Login</legend>
+        <form action="/action/login" method="POST">
+            <label>Username: <input type="text" name="username" required></label><br><br>
+            <label>Password: <input type="password" name="password" required></label><br><br>
+            <button type="submit">Login</button>
+        </form>
+        {% if session.get('login_error') %}
+            <p style="color: red;">Erro: {{ session.pop('login_error') }}</p>
         {% endif %}
-        
-        <h1>🦇 Bat-Store - Status dos Serviços</h1>
-        
-        <div class="status-section">
-            <div class="service-grid">
-                {% for service_name, is_online in services.items() %}
-                    <div class="service-card">
-                        <div>
-                            <strong>{{ service_name }}</strong>
-                            <div class="status {% if is_online %}status-online{% else %}status-offline{% endif %}">
-                                {% if is_online %}Online{% else %}Offline{% endif %}
-                            </div>
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    
-    <script>
-        function logout() {
-            fetch('/logout', { method: 'POST' }).then(() => {
-                window.location.href = '/auth';
-            });
-        }
-    </script>
+        {% if session.get('token') %}
+            <p>Token JWT (Sessão: {{ session.get('username') }} / {{ session.get('role') }}):</p>
+            <textarea rows="4" cols="50" readonly>{{ session.get('token') }}</textarea>
+        {% endif %}
+    </fieldset>
+
+    <fieldset>
+        <legend>Seção 3 - Catálogo</legend>
+        <form action="/action/catalog" method="POST">
+            <label>Item ID: <input type="text" name="item_id" required></label><br><br>
+            <button type="submit">Buscar Item</button>
+        </form>
+        {% if session.get('catalog_result') %}
+            <p>Resultado:</p>
+            <pre>{{ session.pop('catalog_result') | tojson(indent=2) }}</pre>
+        {% endif %}
+    </fieldset>
+
+    <fieldset>
+        <legend>Seção 4 - Criar Pedido</legend>
+        <form action="/action/order" method="POST">
+            <label>Item ID: <input type="text" name="item_id" required></label><br><br>
+            <label>Quantidade: <input type="number" name="quantity" value="1" min="1" required></label><br><br>
+            <label>Método de Pagamento: 
+                <select name="method">
+                    <option value="credit_card">credit_card</option>
+                    <option value="debit_card">debit_card</option>
+                    <option value="bat_coins">bat_coins</option>
+                </select>
+            </label><br><br>
+            <button type="submit">Criar Pedido</button>
+        </form>
+        {% if session.get('order_result') %}
+            <p>Resultado:</p>
+            <pre>{{ session.pop('order_result') | tojson(indent=2) }}</pre>
+        {% endif %}
+    </fieldset>
+
+    <fieldset>
+        <legend>Seção 5 - Consultas</legend>
+        <h3>Consultar Notificação</h3>
+        <form action="/action/notify" method="POST">
+            <label>Order ID: <input type="number" name="order_id" required></label><br><br>
+            <button type="submit">Buscar Notificação</button>
+        </form>
+        {% if session.get('notify_result') %}
+            <pre>{{ session.pop('notify_result') | tojson(indent=2) }}</pre>
+        {% endif %}
+
+        <hr>
+
+        <h3>Consultar Pagamento</h3>
+        <form action="/action/payment" method="POST">
+            <label>Order ID: <input type="number" name="order_id" required></label><br><br>
+            <button type="submit">Buscar Pagamento</button>
+        </form>
+        {% if session.get('payment_result') %}
+            <pre>{{ session.pop('payment_result') | tojson(indent=2) }}</pre>
+        {% endif %}
+    </fieldset>
+
+    <fieldset>
+        <legend>Seção 6 - Observabilidade</legend>
+        <ul>
+            <li><a href="http://localhost:3000" target="_blank">Grafana (Métricas)</a> - admin / admin</li>
+            <li><a href="http://localhost:16686" target="_blank">Jaeger (Tracing)</a></li>
+        </ul>
+    </fieldset>
 </body>
 </html>

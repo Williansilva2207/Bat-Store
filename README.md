@@ -1,517 +1,119 @@
-# Bat-Store
-**Trabalho Prático - Arquitetura de Sistemas Distribuídos**
+# Bat-Store Middleware Distribuído
 
-Implementação completa de um middleware distribuído em Python com FastAPI, demonstrando comunicação síncrona (HTTP/REST) e assíncrona (Redis Pub/Sub), resiliência, observabilidade e segurança com JWT.
+Uma arquitetura de microsserviços tolerante a falhas usando Python, FastAPI, Redis e SQLite.
 
----
+## Pré-requisitos
+Docker e docker-compose instalados.
 
-## Equipe
-
-
----
-
-## Visão Geral da Arquitetura
-
-A **Bat-Store** é um sistema de e-commerce temático (Batman 🦇) implementado como **5 microsserviços independentes**:
-
-| Serviço | Porta | Descrição | Status |
-|---------|-------|-----------|--------|
-| **bat-auth-service** | 8004 | Autenticação JWT e autorização | ✅ |
-| **bat-catalog-service** | 8000 | Catálogo de produtos e estoque | ✅ |
-| **bat-order-service** | 8001 | Criação e gestão de pedidos | ✅ |
-| **bat-payment-service** | 8002 | Processamento de pagamentos | ✅ |
-| **bat-notification-service** | 8003 | Consumidor de fila de eventos | ✅ |
-
-### Infraestrutura Adicional
-
-| Componente | Porta | Descrição |
-|-----------|-------|-----------|
-| **Redis** | 6379 | Fila de mensagens (pub/sub) |
-| **Prometheus** | 9090 | Coleta de métricas |
-| **Grafana** | 3000 | Dashboard de métricas |
-| **Jaeger** | 16686 | Tracing distribuído |
-| **Interface Flask** | 5000 | Web UI para testes |
-
----
-
-## Quick Start
-
-### Pré-requisitos
-
-- Docker e Docker Compose instalados
-- Git instalado
-
-### 1. Clonar e Configurar Repositório
+## Como rodar
 
 ```bash
-git clone https://github.com/Williansilva2207/Bat-Store.git
-cd Bat-Store
-
-# Criar arquivo .env a partir do template
+# 1. Prepare as variáveis de ambiente
 cp .env.example .env
-```
 
-### 2. Subir Todos os Serviços
-
-```bash
-# Build das imagens
-docker compose build
-
-# Subir containers
-docker compose up -d
-
-# Ou tudo de uma vez
+# 2. Suba todos os containers (o docker vai buildar as imagens primeiro)
 docker compose up --build -d
 ```
 
-### 3. Verificar Status
+## Serviços e portas
 
-```bash
-# Ver status dos containers
-docker compose ps
-
-# Ver logs
-docker compose logs -f
-```
-
----
-
-## Como Usar o Sistema
-
-### Acesso à Interface Web
-
-```
-http://localhost:5000
-```
-
-Página inicial mostra status de todos os serviços em tempo real.
-
-### Fluxo Completo: Criar um Pedido
-
-#### 1. Fazer Login
-
-```bash
-curl -X POST http://localhost:8004/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "batman",
-    "password": "change-me"
-  }'
-
-# Resposta:
-{
-  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-  "token_type": "bearer",
-  "role": "admin"
-}
-```
-
-**Usuários de teste:**
-- `batman` / `change-me` (admin)
-- `robin` / `change-me` (user)
-- `alfred` / `change-me` (support)
-
-#### 2. Criar um Pedido (requer token JWT)
-
-```bash
-export TOKEN="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
-
-curl -X POST http://localhost:8001/orders \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "item_id": "bat-01",
-    "quantity": 1,
-    "method": "credit_card"
-  }'
-
-# Resposta:
-{
-  "message": "Pedido realizado com sucesso!",
-  "order_id": 1,
-  "status": "PROCESSANDO",
-  "correlation_id": "550e8400-e29b-41d4-a716-446655440000",
-  "degraded": false
-}
-```
-
-#### 3. Consultar Notificação
-
-```bash
-curl http://localhost:8003/notifications/1
-# Resposta:
-[
-  {
-    "notification_id": 1,
-    "order_id": 1,
-    "item_id": "bat-01",
-    "quantity": 1,
-    "status": "APPROVED",
-    "sent_at": "2024-05-27T10:30:45.123Z"
-  }
-]
-```
-
-#### 4. Consultar Pagamento (requer token admin)
-
-```bash
-curl http://localhost:8002/payments/1 \
-  -H "Authorization: Bearer $TOKEN"
-
-# Resposta:
-{
-  "payment_id": 1,
-  "order_id": 1,
-  "item_id": "bat-01",
-  "quantity": 1,
-  "total": 299.90,
-  "method": "credit_card",
-  "status": "APROVADO"
-}
-```
+| Serviço | Porta | URL | Descrição |
+|---|---|---|---|
+| Interface | 5000 | http://localhost:5000 | Frontend simples (1 única página) |
+| Auth | 8001 | http://localhost:8001 | JWT, login e validação |
+| Catalog | 8002 | http://localhost:8002 | Gestão de itens e estoque |
+| Order | 8003 | http://localhost:8003 | Criação de pedidos |
+| Payment | 8004 | http://localhost:8004 | Processamento financeiro |
+| Notification | 8005 | http://localhost:8005 | Consumidor da fila do Redis |
+| Grafana | 3000 | http://localhost:3000 | Dashboards de monitoramento |
+| Jaeger | 16686 | http://localhost:16686 | Tracing distribuído (OpenTelemetry) |
 
 ---
 
-## Endpoints Protegidos
+## Passo a Passo Explícito de Testes
 
-### Autenticação (sem proteção)
-- `POST /login` - Faz login e retorna JWT token
-- `GET /validate` - Valida token genérico
-- `GET /validate/admin` - Valida token admin (retorna 403 se não admin)
-- `GET /validate/user` - Valida token de usuário
+Para testar o fluxo de ponta a ponta e a resiliência do sistema, siga estes passos em ordem:
 
-### Pedidos (protegido com JWT)
-- `POST /orders` - Criar novo pedido (requer token válido)
+### 1. Teste o Fluxo Completo pela Interface Web
+1. Abra o navegador em `http://localhost:5000`
+2. **Seção 2 (Login)**: Faça login com o usuário `batman` e a senha `batman123`. Você verá um token JWT gerado na caixa de texto.
+3. **Seção 3 (Catálogo)**: Coloque `bat-01` e clique em "Buscar Item". Deve retornar as informações e o estoque do Batman.
+4. **Seção 4 (Criar Pedido)**: Insira `bat-01`, a quantidade `1`, escolha um método de pagamento e clique em "Criar Pedido". Deve aparecer "Pedido realizado com sucesso!".
+5. **Seção 5 (Consultas)**:
+   - Digite o ID do pedido (ex: `1`) em "Buscar Notificação".
+   - Digite o ID do pedido (ex: `1`) em "Buscar Pagamento".
 
-### Pagamentos (protegido com JWT + admin)
-- `GET /payments/{order_id}` - Consultar pagamento (requer token admin)
+### 2. Testar Resiliência e Modo Degradado (Circuit Breaker / Cache)
 
----
-
-## Observabilidade
-
-### Grafana - Dashboard de Métricas
-
-```
-http://localhost:3000
-Credenciais: admin / admin
-```
-
-**Painéis disponíveis:**
-- Requisições por segundo (RPS) por serviço
-- Latência p50, p95, p99
-- Taxa de erros (4xx, 5xx)
-- Status de circuit breaker
-- Cache hit rate
-
-### Jaeger - Tracing Distribuído
-
-```
-http://localhost:16686
-```
-
-**Recursos:**
-- Traces completos para fluxo de pedido
-- Propagação de X-Correlation-ID
-- Latência por span
-- Identificação de gargalos
-
-### Prometheus - Métricas Brutas
-
-```
-http://localhost:9090
-```
-
-**Endpoints de métricas em cada serviço:**
-- `GET http://localhost:8000/metrics` (catalog)
-- `GET http://localhost:8001/metrics` (order)
-- `GET http://localhost:8002/metrics` (payment)
-- `GET http://localhost:8003/metrics` (notification)
-- `GET http://localhost:8004/metrics` (auth)
-
----
-
-## Testando Resiliência
-
-### Teste 1: Catalog Service Fica Indisponível
+O sistema foi feito para tolerar quedas no catálogo, utilizando cache e exibindo um status de "PROCESSANDO_DEGRADADO".
 
 ```bash
-# Derrubar serviço
-docker pause catalog
+# 1. Pare propositalmente o serviço de Catálogo
+docker stop bat-catalog-service
 
-# Tentar criar pedido (deve retornar 503 ou usar cache)
-curl -X POST http://localhost:8001/orders \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"item_id": "bat-01", "quantity": 1}'
+# 2. Vá na interface (localhost:5000) e tente criar outro pedido do "bat-01"
+# O sistema deve demorar um pouco (retries) e em seguida criar o pedido usando o CACHE!
+# A resposta vai exibir a mensagem "Pedido realizado com sucesso em modo degradado (cache do catálogo)." e o status PROCESSANDO_DEGRADADO.
 
-# Ver tentativas de retry nos logs
-docker compose logs order | grep retry
+# 3. Volte a ligar o serviço do Catálogo
+docker start bat-catalog-service
 
-# Trazer de volta
-docker unpause catalog
-
-# Próxima requisição funciona normalmente
+# 4. Crie mais um pedido, tudo deve voltar a funcionar rápido e normalmente (STATUS: PROCESSANDO).
 ```
 
-### Teste 2: Redis Fica Indisponível
-
-```bash
-# Derrubar Redis
-docker stop redis
-
-# Criar pedido (será criado mas notificação não será enviada)
-curl -X POST http://localhost:8001/orders \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"item_id": "bat-01", "quantity": 1}'
-
-# Ver erro de reconexão nos logs
-docker compose logs order | grep redis_connection_failed
-
-# Trazer de volta
-docker start redis
-
-# Verificar que events acumulados são processados
-docker compose logs notification | grep Mensagem
-```
-
-### Teste 3: Verificar Propagação de Correlation ID
-
-```bash
-# Criar pedido com verbose
-curl -v -X POST http://localhost:8001/orders \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"item_id": "bat-01", "quantity": 1}' 2>&1 | grep correlation_id
-
-# Ver no Jaeger que o mesmo ID propaga nos spans
-# http://localhost:16686 → Search → bat-order-service
-```
+### 3. Verificar Observabilidade
+- **Grafana**: Acesse `http://localhost:3000` (login `admin`, senha `admin`). Clique no menu lateral -> Dashboards -> Bat-Store Dashboard. Veja as métricas de RPS, latência P95 e erros 5xx (que provavelmente saltaram durante o teste de queda acima).
+- **Jaeger**: Acesse `http://localhost:16686`. Selecione "bat-order-service" em Service e clique em "Find Traces". Clique em um Trace para ver a jornada completa da requisição, desde o Order passando pelo Auth, Catalog e Payment.
 
 ---
 
-## Variáveis de Ambiente
+## Contratos das APIs
 
-Arquivo `.env.example` contém todas as variáveis com padrões sensatos:
+### 1. bat-auth-service (Autenticação)
 
-```env
-# App / Uvicorn
-APP_HOST=0.0.0.0
-APP_PORT=8000
+**POST /login**
+- **Payload In**: `{"username": "batman", "password": "batman123"}`
+- **Payload Out**: `{"access_token": "eyJ...", "token_type": "bearer", "role": "admin"}`
+- **Respostas**: `200 OK`, `401 Unauthorized`.
 
-# Docker host ports
-CATALOG_HOST_PORT=8000
-ORDER_HOST_PORT=8001
-PAYMENT_HOST_PORT=8002
-NOTIFICATION_HOST_PORT=8003
-AUTH_HOST_PORT=8004
-REDIS_HOST_PORT=6379
-PROMETHEUS_HOST_PORT=9090
-GRAFANA_HOST_PORT=3000
-JAEGER_HOST_PORT=16686
+**GET /validate**
+- **Header**: `Authorization: Bearer <token>`
+- **Payload Out**: `{"username": "batman", "role": "admin", "valid": true}`
+- **Respostas**: `200 OK`, `401 Unauthorized`, `403 Forbidden`.
 
-# Auth / JWT
-JWT_SECRET=change-me-to-a-secure-secret
-JWT_ALGORITHM=HS256
-JWT_EXPIRATION_HOURS=24
+### 2. bat-catalog-service (Catálogo)
 
-# Service URLs
-CATALOG_SERVICE_URL=http://catalog:8000/items
-AUTH_SERVICE_URL=http://auth:8000
-PAYMENT_SERVICE_URL=http://payment:8000
-ORDER_SERVICE_URL=http://order:8000
-NOTIFICATION_SERVICE_URL=http://notification:8000
-CATALOG_REQUEST_TIMEOUT=3.0
-REQUEST_TIMEOUT=3.0
+**GET /items/{id}**
+- **URL Param**: `id` do item (ex: `bat-01`).
+- **Header Opcional**: `X-Correlation-ID`.
+- **Payload Out**: `{"id": "bat-01", "name": "Action Figure Batman", "price": 299.9, "stock": 10}`
+- **Respostas**: `200 OK`, `404 Not Found`.
 
-# Redis
-REDIS_HOST=redis
-REDIS_PORT=6379
-REDIS_RECONNECT_INTERVAL=5
-QUEUE_NAME=fila_pedidos
-REDIS_BLOCK_TIMEOUT=5
-```
+### 3. bat-order-service (Pedidos)
 
----
+**POST /orders**
+- **Header**: `Authorization: Bearer <token>`
+- **Header Opcional**: `X-Correlation-ID`
+- **Payload In**: `{"item_id": "bat-01", "quantity": 1, "method": "credit_card"}`
+- **Payload Out**: `{"message": "Pedido realizado...", "order_id": 1, "status": "PROCESSANDO", "degraded": false, "correlation_id": "uuid"}`
+- **Respostas**: `200 OK`, `400 Bad Request`, `401 Unauthorized`, `503 Service Unavailable`.
 
-## Documentação Técnica
+### 4. bat-payment-service (Pagamentos)
 
-### Comunicação Síncrona (HTTP/REST)
+**POST /payments**
+- **Header Opcional**: `X-Correlation-ID`
+- **Payload In**: `{"order_id": 1, "item_id": "bat-01", "quantity": 1, "method": "credit_card"}`
+- **Payload Out**: `{"message": "Pagamento...", "payment_id": 1, "order_id": 1, "status": "APROVADO", "degraded": false}`
+- **Respostas**: `200 OK`, `400 Bad Request`, `409 Conflict`, `503 Service Unavailable`.
 
-- **Order → Catalog**: Validar estoque via `GET /items/{id}`
-- **Order → Payment**: Processar pagamento via `POST /payments`
-- **Payment → Catalog**: Consultar preço via `GET /items/{id}`
-- **Order → Auth**: Validar token via `GET /validate`
+**GET /payments/{order_id}**
+- **Header**: `Authorization: Bearer <token>` (Requer ROLE Admin)
+- **Payload Out**: `{"payment_id": 1, "order_id": 1, "item_id": "bat-01", "quantity": 1, "total": 299.9, "method": "credit_card", "status": "APROVADO"}`
+- **Respostas**: `200 OK`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found`.
 
-Todos com **retry automático** + **circuit breaker** + **fallback para cache**.
+### 5. bat-notification-service (Notificações)
 
-### Comunicação Assíncrona (Fila Redis)
-
-- **Order → Notification**: Publica evento em `fila_pedidos`
-- **Notification**: Consumidor daemon que processa eventos
-- Garante entrega eventual de notificações mesmo com falhas temporárias
-
-### Segurança
-
-- **JWT (HS256)** com assinatura via JWT_SECRET
-- **Bcrypt** para hash de senhas (nunca em plaintext)
-- **Roles**: admin, user, support
-- **Proteção de endpoints**: Validação obrigatória de token
-
-### Resiliência
-
-- **Retry**: até 3 tentativas com backoff exponencial (0.5s, 1s, 2s)
-- **Circuit Breaker**: Abre após 5 falhas, fecha após 30s
-- **Cache**: Armazena respostas recentes para fallback
-- **Reconexão automática**: Thread daemon para Redis
-
-### Observabilidade
-
-- **Logs estruturados**: JSON com timestamp, level, service, correlation_id
-- **Métricas Prometheus**: Requisições, latência, erros
-- **Tracing Jaeger**: Traces distribuídos com X-Correlation-ID
-- **Dashboard Grafana**: Visualização de métricas em tempo real
-
----
-
-## Estrutura do Projeto
-
-```
-Bat-Store/
-├── services/
-│   ├── bat-auth-service/
-│   │   ├── main.py              # Autenticação JWT
-│   │   ├── database.py          # SQLite users
-│   │   ├── requirements.txt
-│   │   └── dockerfile
-│   ├── bat-catalog-service/
-│   │   ├── main.py              # GET /items/{id}
-│   │   ├── database.py          # SQLite items
-│   │   ├── requirements.txt
-│   │   └── dockerfile
-│   ├── bat-order-service/
-│   │   ├── main.py              # POST /orders (protegido)
-│   │   ├── database.py          # SQLite orders
-│   │   ├── requirements.txt
-│   │   └── dockerfile
-│   ├── bat-payment-service/
-│   │   ├── main.py              # POST /payments, GET /payments/{id}
-│   │   ├── database.py          # SQLite payments
-│   │   ├── requirements.txt
-│   │   └── dockerfile
-│   └── bat-notification-service/
-│       ├── main.py              # GET /notifications/{id}
-│       ├── database.py          # SQLite notifications
-│       ├── requirements.txt
-│       └── dockerfile
-├── middleware/
-│   ├── broker.py                # BatBrokerMiddleware (Redis pub/sub)
-│   ├── resilient_http.py        # ResilientHttpClient (retry + circuit breaker)
-│   └── structured_logging.py    # Logs JSON
-├── interface/
-│   ├── app.py                   # Interface Flask
-│   ├── requirements.txt
-│   ├── Dockerfile
-│   └── templates/
-│       ├── index.html
-│       ├── auth.html
-│       ├── catalog.html
-│       ├── orders.html
-│       └── observability.html
-├── docs/
-│   └── fault-tolerance.md       # Documentação de resiliência
-├── prometheus.yml               # Config Prometheus
-├── docker-compose.yml           # Orquestração
-├── .env.example                 # Template de variáveis
-└── README.md                    # Este arquivo
-```
-
----
-
-## Testes da Implementação
-
-### 1. Fluxo Completo (sem falhas)
-```bash
-# 1. Login
-# 2. Criar pedido
-# 3. Validar notificação gerada
-# 4. Consultar pagamento (como admin)
-```
-
-### 2. Tolerância a Falhas
-```bash
-# 1. Derrubar catalog-service
-# 2. Tentar criar pedido (verifica retry + fallback + 503)
-# 3. Trazer catalog de volta
-# 4. Pedido agora funciona
-```
-
-### 3. Observabilidade
-```bash
-# 1. Criar 10 pedidos
-# 2. Acessar Grafana
-# 3. Verificar RPS, latência, erros
-# 4. Acessar Jaeger
-# 5. Rastrear trace completo com correlation_id
-```
-
----
-
-## Troubleshooting
-
-### "Connection refused" ao chamar serviço
-
-Verifique se container está rodando:
-```bash
-docker compose ps
-
-# Se não estiver, veja logs:
-docker compose logs <service_name>
-```
-
-### "Token inválido" ou "Token expirado"
-
-Gere novo token com POST /login. Tokens expiram em 24 horas (JWT_EXPIRATION_HOURS).
-
-### Notificações não aparecem
-
-Verifique se Redis está rodando:
-```bash
-docker compose ps redis
-
-# Verifique logs do notification-service:
-docker compose logs notification | grep "Mensagem consumida"
-```
-
-### Métricas não aparecem em Prometheus
-
-Aguarde 15-30 segundos para primeira coleta. Prometheus scrape de 15 em 15 segundos.
-
----
-
-## Status de Implementação
-
-### Obrigatórios Implementados
-- [x] 2 serviços independentes
-- [x] Docker + docker-compose
-- [x] Comunicação síncrona (HTTP/REST)
-- [x] Comunicação assíncrona (Redis Pub/Sub)
-- [x] Retry com backoff exponencial
-- [x] Circuit breaker
-- [x] Fallback para cache
-- [x] JWT (autenticação e autorização)
-- [x] Proteção de endpoints (401/403)
-- [x] Logs estruturados JSON
-- [x] Correlation ID propagado
-- [x] docs/fault-tolerance.md
-- [x] README completo
-
-### Bônus Implementados
-- [x] Mais de 3 serviços (5 serviços)
-- [x] Configuração externalizada (.env)
-- [x] Mais de 1 mecanismo de resiliência
-- [x] Prometheus + Grafana
-- [x] Jaeger (tracing distribuído)
-
----
+**GET /notifications/{order_id}**
+- **URL Param**: `order_id` do pedido (ex: `1`).
+- **Payload Out**: `[{"notification_id": 1, "order_id": 1, "item_id": "bat-01", "quantity": 1, "status": "APPROVED", "sent_at": "2024-05-27T10:30:45Z"}]`
+- **Respostas**: `200 OK`, `404 Not Found`.
