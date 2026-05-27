@@ -1,6 +1,7 @@
+import os
 import sqlite3
 
-DB_FILE = "auth.db"
+DB_FILE = os.environ["AUTH_DB_FILE"]
 
 def get_db_connect():
     conecta = sqlite3.connect(DB_FILE)
@@ -22,9 +23,21 @@ def init_db():
     if cursor.fetchone()[0] == 0:
         import bcrypt
         initial_users = [
-            ("batman", bcrypt.hashpw("batman123".encode(), bcrypt.gensalt()).decode(), "admin"),
-            ("robin", bcrypt.hashpw("robin123".encode(), bcrypt.gensalt()).decode(), "user"),
-            ("alfred", bcrypt.hashpw("alfred123".encode(), bcrypt.gensalt()).decode(), "user"),
+            (
+                os.environ["INITIAL_ADMIN_USERNAME"],
+                bcrypt.hashpw(os.environ["INITIAL_ADMIN_PASSWORD"].encode(), bcrypt.gensalt()).decode(),
+                "admin"
+            ),
+            (
+                os.environ["INITIAL_USER_USERNAME"],
+                bcrypt.hashpw(os.environ["INITIAL_USER_PASSWORD"].encode(), bcrypt.gensalt()).decode(),
+                "user"
+            ),
+            (
+                os.environ["INITIAL_SUPPORT_USERNAME"],
+                bcrypt.hashpw(os.environ["INITIAL_SUPPORT_PASSWORD"].encode(), bcrypt.gensalt()).decode(),
+                "user"
+            ),
         ]
         cursor.executemany("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", initial_users)
         conecta.commit()

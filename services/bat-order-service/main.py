@@ -6,9 +6,11 @@ import requests
 from database import init_db, save_order
 from middleware.broker import BatBrokerMiddleware
 
-CATALOG_SERVICE_URL = os.getenv("CATALOG_SERVICE_URL", "http://bat-catalog-service:8001/items")
-REDIS_HOST = os.getenv("REDIS_HOST", "redis")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+CATALOG_SERVICE_URL = os.environ["CATALOG_SERVICE_URL"]
+CATALOG_REQUEST_TIMEOUT = float(os.environ["CATALOG_REQUEST_TIMEOUT"])
+REDIS_HOST = os.environ["REDIS_HOST"]
+REDIS_PORT = int(os.environ["REDIS_PORT"])
+QUEUE_NAME = os.environ["QUEUE_NAME"]
 
 broker = BatBrokerMiddleware(host=REDIS_HOST, port=REDIS_PORT)
 
@@ -30,7 +32,7 @@ def home():
 @app.post("/orders")
 def create_order(order: OrderRequest):
     try:
-        response = requests.get(f"{CATALOG_SERVICE_URL}/{order.item_id}", timeout=3.0)
+        response = requests.get(f"{CATALOG_SERVICE_URL}/{order.item_id}", timeout=CATALOG_REQUEST_TIMEOUT)
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
         raise HTTPException(status_code=503, detail="Serviço de Catálogo indisponível.")
 
@@ -44,7 +46,7 @@ def create_order(order: OrderRequest):
 
     new_order_id = save_order(order.item_id, order.quantity, "PROCESSANDO")
 
-    broker.publish_event(queue_name="fila_pedidos", payload={
+    broker.publish_event(queue_name=QUEUE_NAME, payload={
         "order_id": new_order_id,
         "item_id": order.item_id,
         "quantity": order.quantity,

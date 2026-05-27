@@ -1,20 +1,24 @@
 import json
+import os
 import redis
 import time
 
 from database import get_db_connect
 
 redis_client = redis.Redis(
-    host="localhost",
-    port=6379,
+    host=os.environ["REDIS_HOST"],
+    port=int(os.environ["REDIS_PORT"]),
     decode_responses=True
 )
+
+QUEUE_NAME = os.environ["QUEUE_NAME"]
+REDIS_BLOCK_TIMEOUT = int(os.environ["CATALOG_CONSUMER_BLOCK_TIMEOUT"])
 
 print("Consumer iniciado. Aguardando eventos...")
 
 while True:
 
-    evento = redis_client.brpop("fila_pedidos", timeout=0)
+    evento = redis_client.brpop(QUEUE_NAME, timeout=REDIS_BLOCK_TIMEOUT)
 
     if evento:
 

@@ -1,40 +1,63 @@
 services:
   catalog:
+    env_file:
+      - .env
     build: 
       context: .
       dockerfile: services/bat-catalog-service/dockerfile
     container_name: catalog
     ports:
-      - "8000:8000"
+      - "${CATALOG_HOST_PORT}:${APP_PORT}"
     
   order:
+    env_file:
+      - .env
     build: 
       context: .
       dockerfile: services/bat-order-service/dockerfile
     container_name: order
     ports:
-      - "8001:8000"
+      - "${ORDER_HOST_PORT}:${APP_PORT}"
+    depends_on:
+      - catalog
+      - redis
   
   payment:
+    env_file:
+      - .env
     build: 
       context: .
       dockerfile: services/bat-payment-service/dockerfile
     container_name: payment
     ports:
-      - "8002:8000"
+      - "${PAYMENT_HOST_PORT}:${APP_PORT}"
+    depends_on:
+      - catalog
     
   notification:
+    env_file:
+      - .env
     build: 
       context: .
       dockerfile: services/bat-notification-service/dockerfile
     container_name: notification
     ports:
-      - "8003:8000"
+      - "${NOTIFICATION_HOST_PORT}:${APP_PORT}"
+    depends_on:
+      - redis
     
   auth:
+    env_file:
+      - .env
     build: 
       context: .
       dockerfile: services/bat-auth-service/dockerfile
     container_name: auth
     ports:
-      - "8004:8000"
+      - "${AUTH_HOST_PORT}:${APP_PORT}"
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "${REDIS_HOST_PORT}:${REDIS_PORT}"

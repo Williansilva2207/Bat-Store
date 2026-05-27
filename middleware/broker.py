@@ -2,7 +2,7 @@ import json
 import redis
 
 class BatBrokerMiddleware:
-    def __init__(self, host="localhost", port=6379):
+    def __init__(self, host, port):
         try:
             self.client = redis.Redis(host=host, port=port, decode_responses=True)
         except Exception:

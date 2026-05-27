@@ -4,7 +4,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from database import init_db, save_payment, get_payment_by_order
 
-CATALOG_SERVICE_URL = os.getenv("CATALOG_SERVICE_URL", "http://bat-catalog-service:8000/items")
+CATALOG_SERVICE_URL = os.environ["CATALOG_SERVICE_URL"]
+CATALOG_REQUEST_TIMEOUT = float(os.environ["CATALOG_REQUEST_TIMEOUT"])
 
 METODOS_ACEITOS = ["credit_card", "debit_card", "bat_coins"]
 
@@ -39,7 +40,7 @@ def process_payment(payment: PaymentRequest):
 
     import requests
     try:
-        response = requests.get(f"{CATALOG_SERVICE_URL}/{payment.item_id}", timeout=3.0)
+        response = requests.get(f"{CATALOG_SERVICE_URL}/{payment.item_id}", timeout=CATALOG_REQUEST_TIMEOUT)
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
         raise HTTPException(status_code=503, detail="Serviço de Catálogo indisponível.")
 
