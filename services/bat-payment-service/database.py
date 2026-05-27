@@ -1,6 +1,7 @@
+import os
 import sqlite3
 
-DB_FILE = "payments.db"
+DB_FILE = os.environ["PAYMENTS_DB_FILE"]
 
 def get_db_connect():
     conecta = sqlite3.connect(DB_FILE)

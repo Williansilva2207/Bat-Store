@@ -7,9 +7,10 @@ from fastapi import FastAPI, HTTPException
 import redis
 from database import init_db, save_notification, get_notifications_by_order
 
-REDIS_HOST = os.getenv("REDIS_HOST", "redis")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
-QUEUE_NAME = os.getenv("QUEUE_NAME", "fila_pedidos")
+REDIS_HOST = os.environ["REDIS_HOST"]
+REDIS_PORT = int(os.environ["REDIS_PORT"])
+QUEUE_NAME = os.environ["QUEUE_NAME"]
+REDIS_BLOCK_TIMEOUT = int(os.environ["REDIS_BLOCK_TIMEOUT"])
 
 def processar_mensagem(mensagem: dict):
     order_id = mensagem.get("order_id")
@@ -27,7 +28,7 @@ def consumir_fila():
     print(f"[NOTIFICATION] Aguardando mensagens na fila '{QUEUE_NAME}'...")
     while True:
         try:
-            mensagem_raw = cliente_redis.blpop(QUEUE_NAME, timeout=5)
+            mensagem_raw = cliente_redis.blpop(QUEUE_NAME, timeout=REDIS_BLOCK_TIMEOUT)
             if mensagem_raw:
                 _, mensagem_json = mensagem_raw
                 mensagem = json.loads(mensagem_json)

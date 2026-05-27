@@ -5,15 +5,12 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 import bcrypt
 import jwt
-from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from database import init_db, get_user
 
-load_dotenv()
-
-JWT_SECRET = os.getenv("JWT_SECRET", "bat-sinal-secreto")
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_HOURS = int(os.getenv("JWT_EXPIRATION_HOURS", 24))
+JWT_SECRET = os.environ["JWT_SECRET"]
+JWT_ALGORITHM = os.environ["JWT_ALGORITHM"]
+JWT_EXPIRATION_HOURS = int(os.environ["JWT_EXPIRATION_HOURS"])
 
 security = HTTPBearer()
 

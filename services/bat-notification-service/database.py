@@ -1,6 +1,7 @@
+import os
 import sqlite3
 
-DB_FILE = "notifications.db"
+DB_FILE = os.environ["NOTIFICATIONS_DB_FILE"]
 
 def get_db_connect():
     conecta = sqlite3.connect(DB_FILE)
