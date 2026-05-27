@@ -5,9 +5,8 @@ services:
     build:
       context: .
       dockerfile: services/bat-catalog-service/dockerfile
-    container_name: catalog
-    ports:
-      - "${CATALOG_HOST_PORT}:${APP_PORT}"
+    # container_name removido para permitir replicação
+    # ports expostos removidos para evitar conflito na máquina física. O Docker balanceia internamente.
     deploy:
       replicas: 2
 
@@ -17,9 +16,6 @@ services:
     build:
       context: .
       dockerfile: services/bat-order-service/dockerfile
-    container_name: order
-    ports:
-      - "${ORDER_HOST_PORT}:${APP_PORT}"
     depends_on:
       - catalog
       - redis
@@ -34,9 +30,6 @@ services:
     build:
       context: .
       dockerfile: services/bat-payment-service/dockerfile
-    container_name: payment
-    ports:
-      - "${PAYMENT_HOST_PORT}:${APP_PORT}"
     depends_on:
       - catalog
     deploy:
@@ -48,9 +41,6 @@ services:
     build:
       context: .
       dockerfile: services/bat-notification-service/dockerfile
-    container_name: notification
-    ports:
-      - "${NOTIFICATION_HOST_PORT}:${APP_PORT}"
     depends_on:
       - redis
     deploy:
@@ -62,9 +52,6 @@ services:
     build:
       context: .
       dockerfile: services/bat-auth-service/dockerfile
-    container_name: auth
-    ports:
-      - "${AUTH_HOST_PORT}:${APP_PORT}"
     deploy:
       replicas: 2
 
