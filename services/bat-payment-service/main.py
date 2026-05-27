@@ -1,11 +1,20 @@
 import os
 from contextlib import asynccontextmanager
+
+import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+
 from database import init_db, save_payment, get_payment_by_order
+from middleware.resilient_http import ResilientFallback, ResilientHttpClient
 
 CATALOG_SERVICE_URL = os.environ["CATALOG_SERVICE_URL"]
 CATALOG_REQUEST_TIMEOUT = float(os.environ["CATALOG_REQUEST_TIMEOUT"])
+
+catalog_client = ResilientHttpClient(
+    service_name="bat-payment-service",
+    timeout_seconds=CATALOG_REQUEST_TIMEOUT,
+)
 
 METODOS_ACEITOS = ["credit_card", "debit_card", "bat_coins"]
 
@@ -38,16 +47,30 @@ def process_payment(payment: PaymentRequest):
     if existing:
         raise HTTPException(status_code=409, detail="Pagamento para esse pedido já foi processado.")
 
-    import requests
     try:
-        response = requests.get(f"{CATALOG_SERVICE_URL}/{payment.item_id}", timeout=CATALOG_REQUEST_TIMEOUT)
-    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-        raise HTTPException(status_code=503, detail="Serviço de Catálogo indisponível.")
+        catalog_result = catalog_client.get_json(
+            f"{CATALOG_SERVICE_URL}/{payment.item_id}",
+            cache_key=payment.item_id,
+        )
+        item = catalog_result.payload
+        degraded_mode = catalog_result.fallback
+    except ResilientFallback as fallback:
+        if fallback.payload is not None:
+            item = fallback.payload
+            degraded_mode = True
+        else:
+            raise HTTPException(
+                status_code=503,
+                detail="Serviço de Catálogo indisponível. Operação em modo degradado.",
+            )
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            raise HTTPException(status_code=400, detail="Item não encontrado no catálogo.")
+        raise HTTPException(
+            status_code=503,
+            detail="Serviço de Catálogo indisponível. Operação em modo degradado.",
+        )
 
-    if response.status_code == 404:
-        raise HTTPException(status_code=400, detail="Item não encontrado no catálogo.")
-
-    item = response.json()
     total = item["price"] * payment.quantity
 
     payment_id = save_payment(
@@ -59,15 +82,22 @@ def process_payment(payment: PaymentRequest):
         "APROVADO"
     )
 
+    response_message = (
+        "Pagamento processado com sucesso em modo degradado (cache do catálogo)."
+        if degraded_mode
+        else "Pagamento processado com sucesso!"
+    )
+
     return {
-        "message": "Pagamento processado com sucesso!",
+        "message": response_message,
         "payment_id": payment_id,
         "order_id": payment.order_id,
         "item": item["name"],
         "quantity": payment.quantity,
         "total": total,
         "method": payment.method,
-        "status": "APROVADO"
+        "status": "APROVADO",
+        "degraded": degraded_mode,
     }
 
 @app.get("/payments/{order_id}")
