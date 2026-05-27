@@ -1,6 +1,7 @@
 import os
 import json
 import threading
+import traceback
 from contextlib import asynccontextmanager
 from datetime import datetime
 from fastapi import FastAPI, HTTPException
@@ -12,16 +13,36 @@ REDIS_PORT = int(os.environ["REDIS_PORT"])
 QUEUE_NAME = os.environ["QUEUE_NAME"]
 REDIS_BLOCK_TIMEOUT = int(os.environ["REDIS_BLOCK_TIMEOUT"])
 
+def log_json(level: str, correlation_id: str, message: str, **extra):
+    print(json.dumps({
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "level": level,
+        "service": "bat-notification-service",
+        "correlation_id": correlation_id,
+        "message": message,
+        **extra
+    }, ensure_ascii=False))
+
 def processar_mensagem(mensagem: dict):
     order_id = mensagem.get("order_id")
     item_id = mensagem.get("item_id")
     quantity = mensagem.get("quantity")
     status = mensagem.get("status")
+    correlation_id = mensagem.get("correlation_id", "sem-correlation-id")
     sent_at = datetime.utcnow().isoformat()
 
     notification_id = save_notification(order_id, item_id, quantity, status, sent_at)
 
-    print(f"[NOTIFICACAO] Pedido #{order_id} | Item: {item_id} | Qtd: {quantity} | Status: {status} | ID Notif: {notification_id}")
+    log_json(
+        "INFO",
+        correlation_id,
+        "Mensagem consumida da fila e notificacao salva",
+        order_id=order_id,
+        item_id=item_id,
+        quantity=quantity,
+        status=status,
+        notification_id=notification_id
+    )
 
 def consumir_fila():
     cliente_redis = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
@@ -34,7 +55,13 @@ def consumir_fila():
                 mensagem = json.loads(mensagem_json)
                 processar_mensagem(mensagem)
         except Exception as e:
-            print(f"[NOTIFICATION] Erro ao consumir fila: {e}")
+            log_json(
+                "ERROR",
+                "sem-correlation-id",
+                "Erro ao consumir fila",
+                error=str(e),
+                stack_trace=traceback.format_exc()
+            )
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
