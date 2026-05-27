@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, Request
 from database import init_db, get_db_connect
+from prometheus_fastapi_instrumentator import Instrumentator
 
 CORRELATION_ID_HEADER = "X-Correlation-ID"
 
@@ -23,6 +24,7 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="Bat-Catalog-Service", version="1.0.0", lifespan=lifespan)
+Instrumentator().instrument(app).expose(app)
 
 @app.get("/")
 def home():

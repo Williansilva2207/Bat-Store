@@ -1,0 +1,24 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'bat-auth-service'
+    static_configs:
+      - targets: ['auth:8000']
+
+  - job_name: 'bat-catalog-service'
+    static_configs:
+      - targets: ['catalog:8000']
+
+  - job_name: 'bat-order-service'
+    static_configs:
+      - targets: ['order:8000']
+
+  - job_name: 'bat-payment-service'
+    static_configs:
+      - targets: ['payment:8000']
+
+  - job_name: 'bat-notification-service'
+    static_configs:
+      - targets: ['notification:8000']

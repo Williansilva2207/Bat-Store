@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bat-Store - Pedidos</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        nav {
+            background: #0f3460;
+            padding: 20px 0;
+            margin-bottom: 40px;
+            border-bottom: 3px solid #e94560;
+        }
+        
+        nav ul {
+            list-style: none;
+            display: flex;
+            gap: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        nav a {
+            color: #fff;
+            text-decoration: none;
+            font-weight: bold;
+            transition: color 0.3s;
+        }
+        
+        nav a:hover {
+            color: #e94560;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #e94560;
+        }
+        
+        h2 {
+            color: #e94560;
+            margin-top: 40px;
+            margin-bottom: 20px;
+        }
+        
+        .form-section, .query-section {
+            background: #0f3460;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #e94560;
+            border-radius: 4px;
+            background: #1a1a2e;
+            color: #fff;
+            font-size: 14px;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #ff6b9d;
+        }
+        
+        button {
+            background: #e94560;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #d63749;
+        }
+        
+        .message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .error {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .result-box {
+            background: #1a1a2e;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><a href="/">Início</a></li>
+            <li><a href="/catalog">Catálogo</a></li>
+            <li><a href="/orders">Pedidos</a></li>
+            <li><a href="/observability">Observabilidade</a></li>
+        </ul>
+    </nav>
+    
+    <div class="container">
+        <h1>🦇 Criar Pedido</h1>
+        
+        <div class="form-section">
+            <h2>Novo Pedido</h2>
+            <form id="orderForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="item_id">Produto</label>
+                        <select id="item_id" name="item_id" required>
+                            <option value="">Selecione um produto</option>
+                            {% for item in items %}
+                                <option value="{{ item.id }}">{{ item.name }} - R$ {{ "%.2f"|format(item.price) }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="quantity">Quantidade</label>
+                        <input type="number" id="quantity" name="quantity" min="1" value="1" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="method">Método de Pagamento</label>
+                        <select id="method" name="method" required>
+                            <option value="credit_card">Cartão de Crédito</option>
+                            <option value="debit_card">Cartão de Débito</option>
+                            <option value="bat_coins">Bat Coins</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button type="submit">Criar Pedido</button>
+            </form>
+            
+            <div id="orderMessage" class="message"></div>
+            <div id="orderResult" class="result-box"></div>
+        </div>
+        
+        <div class="query-section">
+            <h2>Consultar Notificação</h2>
+            <div class="form-group">
+                <label for="notification_order_id">ID do Pedido</label>
+                <input type="number" id="notification_order_id" placeholder="Ex: 1">
+            </div>
+            <button onclick="getNotification()">Buscar Notificação</button>
+            <div id="notificationMessage" class="message"></div>
+            <div id="notificationResult" class="result-box"></div>
+        </div>
+        
+        <div class="query-section">
+            <h2>Consultar Pagamento (Apenas Admin)</h2>
+            <div class="form-group">
+                <label for="payment_order_id">ID do Pedido</label>
+                <input type="number" id="payment_order_id" placeholder="Ex: 1">
+            </div>
+            <button onclick="getPayment()">Buscar Pagamento</button>
+            <div id="paymentMessage" class="message"></div>
+            <div id="paymentResult" class="result-box"></div>
+        </div>
+    </div>
+    
+    <script>
+        document.getElementById('orderForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const item_id = document.getElementById('item_id').value;
+            const quantity = document.getElementById('quantity').value;
+            const method = document.getElementById('method').value;
+            const messageDiv = document.getElementById('orderMessage');
+            const resultDiv = document.getElementById('orderResult');
+            
+            try {
+                const response = await fetch('/api/create-order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ item_id, quantity, method })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    messageDiv.className = 'message success';
+                    messageDiv.textContent = 'Pedido criado com sucesso!';
+                    messageDiv.style.display = 'block';
+                    resultDiv.textContent = JSON.stringify(data.order, null, 2);
+                } else {
+                    messageDiv.className = 'message error';
+                    messageDiv.textContent = 'Erro: ' + data.error;
+                    messageDiv.style.display = 'block';
+                }
+            } catch (error) {
+                messageDiv.className = 'message error';
+                messageDiv.textContent = 'Erro ao criar pedido: ' + error.message;
+                messageDiv.style.display = 'block';
+            }
+        });
+        
+        async function getNotification() {
+            const order_id = document.getElementById('notification_order_id').value;
+            const messageDiv = document.getElementById('notificationMessage');
+            const resultDiv = document.getElementById('notificationResult');
+            
+            if (!order_id) {
+                messageDiv.className = 'message error';
+                messageDiv.textContent = 'Por favor, insira um ID de pedido';
+                messageDiv.style.display = 'block';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/get-notification/${order_id}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    messageDiv.className = 'message success';
+                    messageDiv.textContent = 'Notificação encontrada!';
+                    messageDiv.style.display = 'block';
+                    resultDiv.textContent = JSON.stringify(data.notifications, null, 2);
+                } else {
+                    messageDiv.className = 'message error';
+                    messageDiv.textContent = 'Erro: ' + data.error;
+                    messageDiv.style.display = 'block';
+                }
+            } catch (error) {
+                messageDiv.className = 'message error';
+                messageDiv.textContent = 'Erro ao buscar notificação: ' + error.message;
+                messageDiv.style.display = 'block';
+            }
+        }
+        
+        async function getPayment() {
+            const order_id = document.getElementById('payment_order_id').value;
+            const messageDiv = document.getElementById('paymentMessage');
+            const resultDiv = document.getElementById('paymentResult');
+            
+            if (!order_id) {
+                messageDiv.className = 'message error';
+                messageDiv.textContent = 'Por favor, insira um ID de pedido';
+                messageDiv.style.display = 'block';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/get-payment/${order_id}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    messageDiv.className = 'message success';
+                    messageDiv.textContent = 'Pagamento encontrado!';
+                    messageDiv.style.display = 'block';
+                    resultDiv.textContent = JSON.stringify(data.payment, null, 2);
+                } else if (response.status === 403) {
+                    messageDiv.className = 'message error';
+                    messageDiv.textContent = 'Erro: Você não tem permissão para acessar este recurso. Apenas administradores podem consultar pagamentos.';
+                    messageDiv.style.display = 'block';
+                } else {
+                    messageDiv.className = 'message error';
+                    messageDiv.textContent = 'Erro: ' + data.error;
+                    messageDiv.style.display = 'block';
+                }
+            } catch (error) {
+                messageDiv.className = 'message error';
+                messageDiv.textContent = 'Erro ao buscar pagamento: ' + error.message;
+                messageDiv.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>

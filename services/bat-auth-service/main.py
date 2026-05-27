@@ -7,6 +7,7 @@ import bcrypt
 import jwt
 from datetime import datetime, timedelta
 from database import init_db, get_user
+from prometheus_fastapi_instrumentator import Instrumentator
 
 JWT_SECRET = os.environ["JWT_SECRET"]
 JWT_ALGORITHM = os.environ["JWT_ALGORITHM"]
@@ -20,6 +21,7 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="Bat-Auth-Service", version="1.0.0", lifespan=lifespan)
+Instrumentator().instrument(app).expose(app)
 
 class LoginRequest(BaseModel):
     username: str
@@ -75,6 +77,15 @@ def validate_admin(credentials: HTTPAuthorizationCredentials = Depends(security)
     payload = decode_token(credentials.credentials)
     if payload["role"] != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Apenas administradores.")
+    return {
+        "username": payload["sub"],
+        "role": payload["role"],
+        "valid": True
+    }
+
+@app.get("/validate/user")
+def validate_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    payload = decode_token(credentials.credentials)
     return {
         "username": payload["sub"],
         "role": payload["role"],

@@ -92,9 +92,11 @@ class ResilientHttpClient:
         with self._lock:
             self._cache[key] = payload
 
-    def get_json(self, url: str, cache_key: str | None = None) -> ResilientResult:
+    def get_json(self, url: str, cache_key: str | None = None, headers: dict | None = None) -> ResilientResult:
         cache_key = cache_key or url
         now = time.monotonic()
+        if headers is None:
+            headers = {}
 
         with self._lock:
             if self._circuit_open_until > now:
@@ -118,7 +120,7 @@ class ResilientHttpClient:
         last_error = None
         for attempt in range(self.max_retries):
             try:
-                response = self.client.get(url)
+                response = self.client.get(url, headers=headers)
                 if response.status_code >= 500:
                     response.raise_for_status()
                 if response.status_code >= 400:

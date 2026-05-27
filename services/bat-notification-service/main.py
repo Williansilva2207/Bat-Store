@@ -11,6 +11,7 @@ from fastapi import FastAPI, HTTPException
 
 from database import init_db, save_notification, get_notifications_by_order
 from middleware.structured_logging import log_json
+from prometheus_fastapi_instrumentator import Instrumentator
 
 REDIS_HOST = os.environ["REDIS_HOST"]
 REDIS_PORT = int(os.environ["REDIS_PORT"])
@@ -43,17 +44,11 @@ def processar_mensagem(mensagem: dict):
         "INFO",
         correlation_id,
         "Mensagem consumida da fila e notificacao salva",
-        "info",
-        "bat-notification-service",
-        "notification_processed",
-        None,
         order_id=order_id,
         item_id=item_id,
         quantity=quantity,
         status=status,
         notification_id=notification_id
-    )
-        notification_id=notification_id,
     )
 
 
@@ -109,6 +104,7 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="Bat-Notification-Service", version="1.0.0", lifespan=lifespan)
+Instrumentator().instrument(app).expose(app)
 
 @app.get("/")
 def home():

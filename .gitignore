@@ -1,5 +1,6 @@
 # Variáveis de ambiente
 .env
+.env.local
 
 # Cache Python
 __pycache__/
@@ -11,6 +12,27 @@ venv/
 
 # VS Code
 .vscode/
+.idea/
 
 # Logs
 *.log
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+auth.db
+catalog.db
+orders.db
+payments.db
+notifications.db
+
+# IDE
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Docker data
+prometheus_data/
+grafana_data/
