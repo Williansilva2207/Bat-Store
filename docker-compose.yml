@@ -2,17 +2,19 @@ services:
   catalog:
     env_file:
       - .env
-    build: 
+    build:
       context: .
       dockerfile: services/bat-catalog-service/dockerfile
     container_name: catalog
     ports:
       - "${CATALOG_HOST_PORT}:${APP_PORT}"
-    
+    deploy:
+      replicas: 2
+
   order:
     env_file:
       - .env
-    build: 
+    build:
       context: .
       dockerfile: services/bat-order-service/dockerfile
     container_name: order
@@ -21,11 +23,13 @@ services:
     depends_on:
       - catalog
       - redis
-  
+    deploy:
+      replicas: 2
+
   payment:
     env_file:
       - .env
-    build: 
+    build:
       context: .
       dockerfile: services/bat-payment-service/dockerfile
     container_name: payment
@@ -33,11 +37,13 @@ services:
       - "${PAYMENT_HOST_PORT}:${APP_PORT}"
     depends_on:
       - catalog
-    
+    deploy:
+      replicas: 2
+
   notification:
     env_file:
       - .env
-    build: 
+    build:
       context: .
       dockerfile: services/bat-notification-service/dockerfile
     container_name: notification
@@ -45,19 +51,43 @@ services:
       - "${NOTIFICATION_HOST_PORT}:${APP_PORT}"
     depends_on:
       - redis
-    
+    deploy:
+      replicas: 2
+
   auth:
     env_file:
       - .env
-    build: 
+    build:
       context: .
       dockerfile: services/bat-auth-service/dockerfile
     container_name: auth
     ports:
       - "${AUTH_HOST_PORT}:${APP_PORT}"
+    deploy:
+      replicas: 2
 
   redis:
     image: redis:7-alpine
     container_name: redis
+    command: redis-server --save 60 1 --loglevel warning --appendonly yes
     ports:
       - "${REDIS_HOST_PORT}:${REDIS_PORT}"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-replica:
+    image: redis:7-alpine
+    container_name: redis-replica
+    depends_on:
+      - redis
+    command: redis-server --replicaof redis ${REDIS_PORT} --save 60 1 --loglevel warning
+    ports:
+      - "6380:${REDIS_PORT}"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
