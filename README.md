@@ -61,9 +61,27 @@ docker start bat-catalog-service
 # 4. Crie mais um pedido, tudo deve voltar a funcionar rápido e normalmente (STATUS: PROCESSANDO).
 ```
 
-### 3. Verificar Observabilidade
-- **Grafana**: Acesse `http://localhost:3000` (login `admin`, senha `admin`). Clique no menu lateral -> Dashboards -> Bat-Store Dashboard. Veja as métricas de RPS, latência P95 e erros 5xx (que provavelmente saltaram durante o teste de queda acima).
-- **Jaeger**: Acesse `http://localhost:16686`. Selecione "bat-order-service" em Service e clique em "Find Traces". Clique em um Trace para ver a jornada completa da requisição, desde o Order passando pelo Auth, Catalog e Payment.
+### Testando Observabilidade e Tolerância a Falhas
+
+Além da interface, você pode monitorar o tráfego e os logs dos serviços:
+
+1. **Acompanhamento de Logs em Tempo Real:**
+   Abra um novo terminal e execute:
+   ```bash
+   docker compose logs -f
+   ```
+   *Isso vai mostrar tudo o que está acontecendo nos serviços em tempo real, sendo excelente para testes.*
+
+2. **Testando o Prometheus:**
+   Acesse [http://localhost:9090](http://localhost:9090) (ou pelo link gerado no Codespace) e vá na aba **Explore** (ou na tela principal de Query).
+   - Digite `http_requests_total` no campo de busca e clique em **Execute**.
+   - Você verá os dados absolutos das requisições interceptadas por cada serviço.
+
+3. **Painéis do Grafana:**
+   Acesse [http://localhost:3000](http://localhost:3000) (usuário: `admin`, senha: `admin`), vá em **Dashboards** e abra o **Bat-Store Dashboard**. Gere tráfego na Interface e veja os dados aparecerem nos painéis de Total de Requisições, Latência P95 e Erros.
+
+4. **Testando o Circuit Breaker:**
+   - **Jaeger**: Acesse `http://localhost:16686`. Selecione "bat-order-service" em Service e clique em "Find Traces". Clique em um Trace para ver a jornada completa da requisição, desde o Order passando pelo Auth, Catalog e Payment.
 
 ---
 
