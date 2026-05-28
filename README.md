@@ -26,7 +26,7 @@ docker compose up --build -d
 | Payment | 8004 | http://localhost:8004 | Processamento financeiro |
 | Notification | 8005 | http://localhost:8005 | Consumidor da fila do Redis |
 | Grafana | 3000 | http://localhost:3000 | Dashboards de monitoramento |
-| Prometheus | 9090 | http://localhost:3000 | Armazenamento de métricas |
+| Prometheus | 9090 | http://localhost:9090 | Armazenamento de métricas |
 | Jaeger | 16686 | http://localhost:16686 | Tracing distribuído (OpenTelemetry) |
 
 ---
